@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">Pulse Alert</string>
+    <string name="title_activity_settings">Settings</string>
+
+    <string name="tab1">#009688</string>
+    <string name="tab2">#9E9E9E</string>
+</resources>

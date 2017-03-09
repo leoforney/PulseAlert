@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item android:id="@+id/heart_rate_tab" android:title="Heart Rate" android:icon="@drawable/ic_heart_rate" />
+    <item android:id="@+id/settings_tab" android:title="Settings" android:icon="@drawable/ic_settings" />
+
+</menu>
