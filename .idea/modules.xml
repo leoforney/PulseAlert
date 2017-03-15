@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/PolarHeartRateApplication.iml" filepath="$PROJECT_DIR$/PolarHeartRateApplication.iml" />
+      <module fileurl="file://$PROJECT_DIR$/PulseAlert.iml" filepath="$PROJECT_DIR$/PulseAlert.iml" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
     </modules>
   </component>
