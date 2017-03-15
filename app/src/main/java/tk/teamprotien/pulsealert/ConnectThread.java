@@ -71,7 +71,7 @@ public class ConnectThread extends Thread {
             }
 
         // Do work to manage the connection (in a separate thread)
-        while (true) { //reading loop
+        while (Thread.currentThread().isAlive()) { //reading loop
             try {
                 DataHandler.getInstance().acqui(mmSocket.getInputStream().read()); //read value
             } catch (IOException e) {

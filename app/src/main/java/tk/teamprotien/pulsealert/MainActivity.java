@@ -18,8 +18,6 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import org.marco45.pulse.R;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Observable;
@@ -32,7 +30,6 @@ import java.util.Observer;
  */
 public class MainActivity extends AppCompatActivity implements OnItemSelectedListener, Observer {
 
-    private int MAX_SIZE = 60; //graph max size
     boolean searchBt = true;
     BluetoothAdapter mBluetoothAdapter;
     List<BluetoothDevice> pairedDevices = new ArrayList<>();
@@ -282,10 +279,6 @@ public class MainActivity extends AppCompatActivity implements OnItemSelectedLis
      * Update Gui with new value from receiver
      */
     public void receiveData() {
-        //ANALYTIC
-        //t.setScreenName("Polar Bluetooth Used");
-        //t.send(new HitBuilders.AppViewBuilder().build());
-
         runOnUiThread(new Runnable() {
             public void run() {
                 //menuBool=true;
