@@ -17,6 +17,7 @@ import android.location.LocationManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
 import android.provider.ContactsContract;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
@@ -63,7 +64,9 @@ public class MainActivity extends AppCompatActivity implements OnItemSelectedLis
     boolean h7 = false; //Was the BTLE tested
     boolean normal = false; //Was the BT tested
     boolean callPlaced = false;
+    boolean ignoreHeartRate = false;
     SharedPreferences pref;
+    AlertDialog alert;
     private Spinner spinner1;
 
     public static Location getLastKnownLocation(Context context) {
@@ -94,6 +97,34 @@ public class MainActivity extends AppCompatActivity implements OnItemSelectedLis
 
         findViewById(R.id.eContactsButton).setOnClickListener(this);
 
+        final AlertDialog.Builder dialog = new AlertDialog.Builder(MainActivity.this).setTitle("Oh no!").
+                setMessage("We believe you are having a heart attack. Calling hospital in 15 seconds.").
+                setPositiveButton("I'm fine", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int whichButton) {
+                        dialog.dismiss();
+                        new AlertDialog.Builder(MainActivity.this).setTitle("That's great! " + new String(Character.toChars(0x1F605))).
+                                setMessage("App calling and texting have been temporarily suppressed for 30 minutes!")
+                                .setNeutralButton("Dismiss", new DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick(DialogInterface dialogInterface, int i) {
+                                        dialogInterface.dismiss();
+                                    }
+                                }).create().show();
+                        ignoreHeartRate = true;
+                        Handler handler = new Handler();
+                        Runnable runnable = new Runnable() {
+                            @Override
+                            public void run() {
+                                ignoreHeartRate = false;
+                            }
+                        };
+                        long minutes = 30;
+                        handler.postDelayed(runnable, minutes * 60 * 1000);
+                    }
+                });
+
+        alert = dialog.create();
         requestPermissions();
 
         //Verify if device is to old for BTLE
@@ -306,8 +337,33 @@ public class MainActivity extends AppCompatActivity implements OnItemSelectedLis
                 //menuBool=true;
                 TextView rpm = (TextView) findViewById(R.id.rpm);
                 rpm.setText(DataHandler.getInstance().getLastValue());
-                if (DataHandler.getInstance().getLastIntValue() > 50 && !callPlaced) {
-                    callHelp(getApplicationContext());
+                if (DataHandler.getInstance().getLastIntValue() > 50 &&
+                        !callPlaced &&
+                        !alert.isShowing() &&
+                        !ignoreHeartRate) {
+                    alert.show();
+
+// Hide after some seconds
+                    final Handler handler = new Handler();
+                    final Runnable runnable = new Runnable() {
+                        @Override
+                        public void run() {
+                            if (alert.isShowing()) {
+                                alert.dismiss();
+                                callHelp(MainActivity.this);
+                                callPlaced = true;
+                            }
+                        }
+                    };
+
+                    alert.setOnDismissListener(new DialogInterface.OnDismissListener() {
+                        @Override
+                        public void onDismiss(DialogInterface dialog) {
+                            handler.removeCallbacks(runnable);
+                        }
+                    });
+
+                    handler.postDelayed(runnable, 15000);
                 }
             }
         });
@@ -329,23 +385,27 @@ public class MainActivity extends AppCompatActivity implements OnItemSelectedLis
 
         Log.d(TAG, pref.getString("contacts", ""));
 
-        List<ContactImpl> contacts = Arrays.asList(new Gson().fromJson(pref.getString("contacts", ""), ContactImpl[].class));
+        String contactsString = pref.getString("contacts", "");
+        if (!contactsString.equals("")) {
+            List<ContactImpl> contacts = Arrays.asList(new Gson().fromJson(contactsString, ContactImpl[].class));
+            Log.d(TAG, "Location: " + location);
 
-        Log.d(TAG, "Location: " + location);
+            if (location != null) {
+                double longitude = location.getLongitude();
+                double latitude = location.getLatitude();
 
-        if (location != null) {
-            double longitude = location.getLongitude();
-            double latitude = location.getLatitude();
+                for (ContactImpl contact : contacts) {
+                    PendingIntent sentPI = PendingIntent.getBroadcast(context, 0, new Intent("SMS_SENT"), 0);
+                    Log.d(TAG, contact.getFirstName() + ": " + contact.getPhone(2));
+                    sendSMS(contact.getPhone(2), "Help! I just had a heart attack! I'm at Long: " + longitude + " and Lat: " + latitude
+                            + "\n" +
+                            "http://www.google.com/maps/place/" + latitude + "," + longitude, sentPI);
+                }
 
-            for (ContactImpl contact : contacts) {
-                PendingIntent sentPI = PendingIntent.getBroadcast(context, 0, new Intent("SMS_SENT"), 0);
-                Log.d(TAG, contact.getFirstName() + ": " + contact.getPhone(2));
-                sendSMS(contact.getPhone(2), "Help! I just had a heart attack! I'm at Long: " + longitude + " and Lat: " + latitude
-                        + "\n" +
-                        "http://www.google.com/maps/place/" + latitude + "," + longitude, sentPI);
             }
-
         }
+
+
     }
 
     private void sendSMS(String phoneNumber, String message, PendingIntent intent) {
