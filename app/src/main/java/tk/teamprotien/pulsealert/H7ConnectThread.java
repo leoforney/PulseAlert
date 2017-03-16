@@ -1,8 +1,5 @@
 package tk.teamprotien.pulsealert;
 
-import java.util.List;
-import java.util.UUID;
-
 import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
@@ -12,6 +9,9 @@ import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothGattService;
 import android.util.Log;
 
+import java.util.List;
+import java.util.UUID;
+
 /**
  * This thread to the connection with the bluetooth device
  *
@@ -20,33 +20,10 @@ import android.util.Log;
 @SuppressLint("NewApi")
 public class H7ConnectThread extends Thread {
 
-    MainActivity ac;
-    private BluetoothGatt gat; //gat server
-    private final String HRUUID = "0000180D-0000-1000-8000-00805F9B34FB";
     static BluetoothGattDescriptor descriptor;
     static BluetoothGattCharacteristic cc;
-
-    public H7ConnectThread(BluetoothDevice device, MainActivity ac) {
-        Log.i("H7ConnectThread", "Starting H7 reader BTLE");
-        this.ac = ac;
-        gat = device.connectGatt(ac, false, btleGattCallback); // Connect to the device and store the server (gatt)
-    }
-
-
-    /**
-     * Will cancel an in-progress connection, and close the socket
-     */
-    public void cancel() {
-        gat.setCharacteristicNotification(cc, false);
-        descriptor.setValue(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE);
-        gat.writeDescriptor(descriptor);
-
-        gat.disconnect();
-        gat.close();
-        Log.i("H7ConnectThread", "Closing HRsensor");
-    }
-
-
+    private final String HRUUID = "0000180D-0000-1000-8000-00805F9B34FB";
+    MainActivity ac;
     //Callback from the bluetooth
     private final BluetoothGattCallback btleGattCallback = new BluetoothGattCallback() {
 
@@ -56,7 +33,7 @@ public class H7ConnectThread extends Thread {
             byte[] data = characteristic.getValue();
             int bmp = data[1] & 0xFF; // To unsign the value
             DataHandler.getInstance().cleanInput(bmp);
-            Log.v("H7ConnectThread", "Data received from HR " + bmp);
+            //Log.v("H7ConnectThread", "Data received from HR " + bmp);
         }
 
         //called on the successful connection
@@ -94,4 +71,25 @@ public class H7ConnectThread extends Thread {
             }
         }
     };
+    private BluetoothGatt gat; //gat server
+
+
+    public H7ConnectThread(BluetoothDevice device, MainActivity ac) {
+        Log.i("H7ConnectThread", "Starting H7 reader BTLE");
+        this.ac = ac;
+        gat = device.connectGatt(ac, false, btleGattCallback); // Connect to the device and store the server (gatt)
+    }
+
+    /**
+     * Will cancel an in-progress connection, and close the socket
+     */
+    public void cancel() {
+        gat.setCharacteristicNotification(cc, false);
+        descriptor.setValue(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE);
+        gat.writeDescriptor(descriptor);
+
+        gat.disconnect();
+        gat.close();
+        Log.i("H7ConnectThread", "Closing HRsensor");
+    }
 }

@@ -1,12 +1,12 @@
 package tk.teamprotien.pulsealert;
 
-import java.io.IOException;
-import java.util.UUID;
-
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
 import android.util.Log;
+
+import java.io.IOException;
+import java.util.UUID;
 
 /**
  * This thread to the connection with the bluetooth device
@@ -15,8 +15,8 @@ import android.util.Log;
  */
 public class ConnectThread extends Thread {
 
-    BluetoothAdapter mBluetoothAdapter;
     private final BluetoothSocket mmSocket;
+    BluetoothAdapter mBluetoothAdapter;
     MainActivity ac;
 
     public ConnectThread(BluetoothDevice device, MainActivity ac) {
@@ -71,7 +71,7 @@ public class ConnectThread extends Thread {
             }
 
         // Do work to manage the connection (in a separate thread)
-        while (Thread.currentThread().isAlive()) { //reading loop
+        while (Thread.currentThread().isAlive() && mBluetoothAdapter.isEnabled()) { //reading loop
             try {
                 DataHandler.getInstance().acqui(mmSocket.getInputStream().read()); //read value
             } catch (IOException e) {

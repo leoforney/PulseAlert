@@ -1,15 +1,27 @@
 package tk.teamprotien.pulsealert;
 
+import android.Manifest;
+import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.PendingIntent;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.location.Location;
+import android.location.LocationManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.ContactsContract;
+import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
+import android.telephony.SmsManager;
 import android.util.Log;
-import android.view.Menu;
-import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemSelectedListener;
@@ -18,32 +30,71 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.gson.Gson;
+import com.onegravity.contactpicker.contact.Contact;
+import com.onegravity.contactpicker.contact.ContactDescription;
+import com.onegravity.contactpicker.contact.ContactSortOrder;
+import com.onegravity.contactpicker.core.ContactImpl;
+import com.onegravity.contactpicker.core.ContactPickerActivity;
+import com.onegravity.contactpicker.picture.ContactPictureType;
+
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Observable;
 import java.util.Observer;
+
+import static android.content.ContentValues.TAG;
 
 /**
  * This program connect to a bluetooth polar heart rate monitor and display data
  *
  * @author Marco
  */
-public class MainActivity extends AppCompatActivity implements OnItemSelectedListener, Observer {
+public class MainActivity extends AppCompatActivity implements OnItemSelectedListener, Observer, View.OnClickListener {
 
+    private final static int REQUEST_PERM = 1010;
+    private final static int REQUEST_CONTACT = 2010;
+    static LocationManager mLocationManager;
     boolean searchBt = true;
     BluetoothAdapter mBluetoothAdapter;
     List<BluetoothDevice> pairedDevices = new ArrayList<>();
     boolean menuBool = false; //display or not the disconnect option
     boolean h7 = false; //Was the BTLE tested
     boolean normal = false; //Was the BT tested
+    boolean callPlaced = false;
+    SharedPreferences pref;
     private Spinner spinner1;
 
+    public static Location getLastKnownLocation(Context context) {
+        mLocationManager = (LocationManager) context.getSystemService(LOCATION_SERVICE);
+        List<String> providers = mLocationManager.getProviders(true);
+        Location bestLocation = null;
+        for (String provider : providers) {
+            if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            }
+            Location l = mLocationManager.getLastKnownLocation(provider);
+            if (l == null) {
+                continue;
+            }
+            if (bestLocation == null || l.getAccuracy() < bestLocation.getAccuracy()) {
+                bestLocation = l;
+            }
+        }
+        return bestLocation;
+    }
 
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         Log.i("Main Activity", "Starting Polar HR monitor main activity");
         DataHandler.getInstance().addObserver(this);
+
+        pref = getSharedPreferences("PulseAlert", MODE_PRIVATE);
+
+        findViewById(R.id.eContactsButton).setOnClickListener(this);
+
+        requestPermissions();
 
         //Verify if device is to old for BTLE
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR2) {
@@ -66,7 +117,7 @@ public class MainActivity extends AppCompatActivity implements OnItemSelectedLis
                                 public void onClick(DialogInterface dialog, int which) {
                                     mBluetoothAdapter.enable();
                                     try {
-                                        Thread.sleep(2000);
+                                        Thread.sleep(50);
                                     } catch (InterruptedException e) {
                                         e.printStackTrace();
                                     }
@@ -86,13 +137,27 @@ public class MainActivity extends AppCompatActivity implements OnItemSelectedLis
 
         } else {
             listBT();
-
         }
     }
 
     protected void onDestroy() {
         super.onDestroy();
         DataHandler.getInstance().deleteObserver(this);
+    }
+
+    private void askForPermission(String[] permission) {
+        ActivityCompat.requestPermissions(this, permission, REQUEST_PERM);
+    }
+
+    private void requestPermissions() {
+        try {
+            PackageInfo info = getPackageManager().getPackageInfo(getBaseContext().getPackageName(), PackageManager.GET_PERMISSIONS);
+            if (info != null) {
+                askForPermission(info.requestedPermissions);
+            }
+        } catch (PackageManager.NameNotFoundException e) {
+            e.printStackTrace();
+        }
     }
 
     /**
@@ -151,7 +216,7 @@ public class MainActivity extends AppCompatActivity implements OnItemSelectedLis
             spinner1.setOnItemSelectedListener(this);
             spinner1.setAdapter(dataAdapter);
 
-            for (int i = 0; i < dataAdapter.getCount(); i++ ) {
+            for (int i = 0; i < dataAdapter.getCount(); i++) {
                 if (dataAdapter.getItem(i).contains("Polar H7")) spinner1.setSelection(i);
             }
 
@@ -161,47 +226,10 @@ public class MainActivity extends AppCompatActivity implements OnItemSelectedLis
     }
 
     /**
-     * When menu button are pressed
-     */
-    public boolean onOptionsItemSelected(MenuItem item) {
-        int id = item.getItemId();
-        Log.d("Main Activity", "Menu pressed");
-        if (id == R.id.action_settings) { //close connection
-            menuBool = false;
-            Log.d("Main Activity", "disable pressed");
-            if (spinner1 != null) {
-                spinner1.setSelection(0);
-            }
-            if (DataHandler.getInstance().getReader() == null) {
-                Log.i("Main Activity", "Disabling h7");
-                DataHandler.getInstance().getH7().cancel();
-                DataHandler.getInstance().setH7(null);
-                h7 = false;
-            } else {
-                Log.i("Main Activity", "Disabling BT");
-                DataHandler.getInstance().getReader().cancel();
-                DataHandler.getInstance().setReader(null);
-                normal = false;
-            }
-            return true;
-        }
-        return super.onOptionsItemSelected(item);
-    }
-
-
-    public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.main, menu);
-        return true;
-    }
-
-    /**
      * When the option is selected in the dropdown we turn on the bluetooth
      */
     public void onItemSelected(AdapterView<?> arg0, View arg1, int arg2,
                                long arg3) {
-
-
         if (arg2 != 0) {
             //Actual work
             DataHandler.getInstance().setID(arg2);
@@ -221,12 +249,6 @@ public class MainActivity extends AppCompatActivity implements OnItemSelectedLis
 
         }
 
-    }
-
-    public boolean onPrepareOptionsMenu(Menu menu) {
-        menu.findItem(R.id.action_settings).setEnabled(menuBool);
-        menu.findItem(R.id.action_settings).setVisible(menuBool);
-        return true;
     }
 
     public void onNothingSelected(AdapterView<?> arg0) {
@@ -284,7 +306,95 @@ public class MainActivity extends AppCompatActivity implements OnItemSelectedLis
                 //menuBool=true;
                 TextView rpm = (TextView) findViewById(R.id.rpm);
                 rpm.setText(DataHandler.getInstance().getLastValue());
+                if (DataHandler.getInstance().getLastIntValue() > 50 && !callPlaced) {
+                    callHelp(getApplicationContext());
+                }
             }
         });
+    }
+
+    public void callHelp(Context context) {
+        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+                ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        }
+
+        pref.edit().putString("CallRequested", "").apply();
+        Location location = getLastKnownLocation(context);
+        Intent intent = new Intent(Intent.ACTION_CALL);
+        intent.setData(Uri.parse("tel:" + context.getResources().getString(R.string.callNumber).replace("-", "")));
+        intent.putExtra("fromPulseAlert", true);
+        startActivity(intent);
+
+        callPlaced = true;
+
+        Log.d(TAG, pref.getString("contacts", ""));
+
+        List<ContactImpl> contacts = Arrays.asList(new Gson().fromJson(pref.getString("contacts", ""), ContactImpl[].class));
+
+        Log.d(TAG, "Location: " + location);
+
+        if (location != null) {
+            double longitude = location.getLongitude();
+            double latitude = location.getLatitude();
+
+            for (ContactImpl contact : contacts) {
+                PendingIntent sentPI = PendingIntent.getBroadcast(context, 0, new Intent("SMS_SENT"), 0);
+                Log.d(TAG, contact.getFirstName() + ": " + contact.getPhone(2));
+                sendSMS(contact.getPhone(2), "Help! I just had a heart attack! I'm at Long: " + longitude + " and Lat: " + latitude
+                        + "\n" +
+                        "http://www.google.com/maps/place/" + latitude + "," + longitude, sentPI);
+            }
+
+        }
+    }
+
+    private void sendSMS(String phoneNumber, String message, PendingIntent intent) {
+        SmsManager sms = SmsManager.getDefault();
+        sms.sendTextMessage(phoneNumber, null, message, intent, null);
+    }
+
+    @Override
+    public void onClick(View view) {
+        switch (view.getId()) {
+            case R.id.eContactsButton:
+                Intent intent = new Intent(getApplicationContext(), ContactPickerActivity.class)
+                        .putExtra(ContactPickerActivity.EXTRA_CONTACT_BADGE_TYPE, ContactPictureType.ROUND.name())
+                        .putExtra(ContactPickerActivity.EXTRA_ONLY_CONTACTS_WITH_PHONE, true)
+                        .putExtra(ContactPickerActivity.EXTRA_SHOW_CHECK_ALL, true)
+                        .putExtra(ContactPickerActivity.EXTRA_CONTACT_DESCRIPTION, ContactDescription.ADDRESS.name())
+                        .putExtra(ContactPickerActivity.EXTRA_CONTACT_DESCRIPTION_TYPE, ContactsContract.CommonDataKinds.Email.TYPE_WORK)
+                        .putExtra(ContactPickerActivity.EXTRA_CONTACT_SORT_ORDER, ContactSortOrder.AUTOMATIC.name());
+                startActivityForResult(intent, REQUEST_CONTACT);
+                break;
+        }
+    }
+
+    public void setStatus(boolean connected) {
+
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == REQUEST_CONTACT && resultCode == Activity.RESULT_OK &&
+                data != null && data.hasExtra(ContactPickerActivity.RESULT_CONTACT_DATA)) {
+
+            // process contacts
+            List<Contact> contacts = (List<Contact>) data.getSerializableExtra(ContactPickerActivity.RESULT_CONTACT_DATA);
+
+            pref.edit().putString("contacts", new Gson().toJson(contacts)).apply();
+
+            Log.d(MainActivity.class.getName(), new Gson().toJson(contacts));
+
+            for (Contact contact : contacts) {
+                Log.d(TAG, contact.getFirstName() + ": " + contact.getPhone(2));
+                SmsManager manager = SmsManager.getDefault();
+                ArrayList<String> divided = manager.divideMessage("Hey " + contact.getFirstName() + "!" +
+                        " This is an automated message sent on the behalf of the user of this number. " +
+                        "They have marked you as an emergency contact on the Pulse Alert app. This means you'll be " +
+                        "notified when they are believed to have a heart attack. The notification will include also include a GPS location");
+                manager.sendMultipartTextMessage(contact.getPhone(2), null, divided, null, null);
+            }
+
+        }
     }
 }
