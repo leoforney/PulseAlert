@@ -148,7 +148,7 @@ public class MainActivity extends AppCompatActivity implements OnItemSelectedLis
                                 public void onClick(DialogInterface dialog, int which) {
                                     mBluetoothAdapter.enable();
                                     try {
-                                        Thread.sleep(50);
+                                        Thread.sleep(2000);
                                     } catch (InterruptedException e) {
                                         e.printStackTrace();
                                     }
@@ -378,7 +378,6 @@ public class MainActivity extends AppCompatActivity implements OnItemSelectedLis
         Location location = getLastKnownLocation(context);
         Intent intent = new Intent(Intent.ACTION_CALL);
         intent.setData(Uri.parse("tel:" + context.getResources().getString(R.string.callNumber).replace("-", "")));
-        intent.putExtra("fromPulseAlert", true);
         startActivity(intent);
 
         callPlaced = true;
@@ -396,10 +395,15 @@ public class MainActivity extends AppCompatActivity implements OnItemSelectedLis
 
                 for (ContactImpl contact : contacts) {
                     PendingIntent sentPI = PendingIntent.getBroadcast(context, 0, new Intent("SMS_SENT"), 0);
-                    Log.d(TAG, contact.getFirstName() + ": " + contact.getPhone(2));
-                    sendSMS(contact.getPhone(2), "Help! I just had a heart attack! I'm at Long: " + longitude + " and Lat: " + latitude
-                            + "\n" +
-                            "http://www.google.com/maps/place/" + latitude + "," + longitude, sentPI);
+                    String number = contact.getPhone(2);
+                    number = number.replaceAll("[()]- ", "");
+                    if (number.length() > 10) {
+                        number = "+" + number;
+                    } else {
+                        number = "+1" + number;
+                    }
+                    Log.d(TAG, contact.getFirstName() + ": " + number);
+                    sendSMS(number, "Help! I just had a heart attack! I'm at " + "http://www.google.com/maps/place/" + latitude + "," + longitude, sentPI);
                 }
 
             }
@@ -427,10 +431,6 @@ public class MainActivity extends AppCompatActivity implements OnItemSelectedLis
                 startActivityForResult(intent, REQUEST_CONTACT);
                 break;
         }
-    }
-
-    public void setStatus(boolean connected) {
-
     }
 
     @Override

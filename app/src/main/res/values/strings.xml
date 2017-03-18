@@ -2,7 +2,7 @@
 <resources>
 
     <string name="app_name">Pulse Alert</string>
-    <string name="selectDevice">Select Your device</string>
+    <string name="selectDevice">Select your device</string>
     <string name="action_settings">Disconnect</string>
     <string name="couldnotconnect">Sorry, Could not connect to the Polar device</string>
     <string name="bluetooth">Bluetooth</string>
