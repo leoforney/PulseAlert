@@ -23,14 +23,20 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.telephony.SmsManager;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemSelectedListener;
 import android.widget.ArrayAdapter;
+import android.widget.CheckBox;
+import android.widget.CompoundButton;
+import android.widget.RelativeLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.cepheuen.elegantnumberbutton.view.ElegantNumberButton;
 import com.google.gson.Gson;
 import com.onegravity.contactpicker.contact.Contact;
 import com.onegravity.contactpicker.contact.ContactDescription;
@@ -52,7 +58,7 @@ import static android.content.ContentValues.TAG;
  *
  * @author Marco
  */
-public class MainActivity extends AppCompatActivity implements OnItemSelectedListener, Observer, View.OnClickListener {
+public class MainActivity extends AppCompatActivity implements OnItemSelectedListener, Observer, View.OnClickListener, CompoundButton.OnCheckedChangeListener {
 
     private final static int REQUEST_PERM = 1010;
     private final static int REQUEST_CONTACT = 2010;
@@ -65,6 +71,7 @@ public class MainActivity extends AppCompatActivity implements OnItemSelectedLis
     boolean normal = false; //Was the BT tested
     boolean callPlaced = false;
     boolean ignoreHeartRate = false;
+    long minutes = 15;
     SharedPreferences pref;
     AlertDialog alert;
     private Spinner spinner1;
@@ -96,6 +103,9 @@ public class MainActivity extends AppCompatActivity implements OnItemSelectedLis
         pref = getSharedPreferences("PulseAlert", MODE_PRIVATE);
 
         findViewById(R.id.eContactsButton).setOnClickListener(this);
+        CheckBox demoCheckBox = ((CheckBox) findViewById(R.id.demoModeCheckbox));
+        demoCheckBox.setOnCheckedChangeListener(this);
+        demoCheckBox.setChecked(pref.getBoolean("demo", false));
 
         final AlertDialog.Builder dialog = new AlertDialog.Builder(MainActivity.this).setTitle("Oh no!").
                 setMessage("We believe you are having a heart attack. Calling hospital in 15 seconds.").
@@ -103,24 +113,46 @@ public class MainActivity extends AppCompatActivity implements OnItemSelectedLis
                     @Override
                     public void onClick(DialogInterface dialog, int whichButton) {
                         dialog.dismiss();
+                        ignoreHeartRate = true;
+                        minutes = 15;
+                        LayoutInflater inflater = (LayoutInflater) getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+                        final RelativeLayout layout = new RelativeLayout(getApplicationContext());
+                        layout.setLayoutParams(new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+                        final ElegantNumberButton numberCounter = new ElegantNumberButton(getApplicationContext());
+                        RelativeLayout.LayoutParams numberChooserParams = new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.WRAP_CONTENT, RelativeLayout.LayoutParams.WRAP_CONTENT);
+                        numberChooserParams.addRule(RelativeLayout.CENTER_HORIZONTAL);
+                        numberCounter.setLayoutParams(numberChooserParams);
+                        numberCounter.setNumber("15");
+                        numberCounter.setRange(10, 30);
+                        numberCounter.setOnClickListener(new ElegantNumberButton.OnClickListener() {
+                            @Override
+                            public void onClick(View view) {
+                                minutes = Integer.parseInt(numberCounter.getNumber());
+                            }
+                        });
+                        layout.addView(numberCounter);
                         new AlertDialog.Builder(MainActivity.this).setTitle("That's great! " + new String(Character.toChars(0x1F605))).
-                                setMessage("App calling and texting have been temporarily suppressed for 30 minutes!")
+                                setMessage("How many minutes would you like to suppress calling and texting for?")
                                 .setNeutralButton("Dismiss", new DialogInterface.OnClickListener() {
                                     @Override
                                     public void onClick(DialogInterface dialogInterface, int i) {
                                         dialogInterface.dismiss();
                                     }
-                                }).create().show();
-                        ignoreHeartRate = true;
-                        Handler handler = new Handler();
-                        Runnable runnable = new Runnable() {
+                                }).setView(layout).setOnDismissListener(new DialogInterface.OnDismissListener() {
                             @Override
-                            public void run() {
-                                ignoreHeartRate = false;
+                            public void onDismiss(DialogInterface dialog) {
+                                Log.d(TAG, "Suppressed for " + minutes + " minutes");
+                                Handler handler = new Handler();
+                                Runnable runnable = new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        ignoreHeartRate = false;
+                                    }
+                                };
+                                handler.postDelayed(runnable, minutes * 60 * 1000);
                             }
-                        };
-                        long minutes = 30;
-                        handler.postDelayed(runnable, minutes * 60 * 1000);
+                        }).create().show();
+
                     }
                 });
 
@@ -337,7 +369,8 @@ public class MainActivity extends AppCompatActivity implements OnItemSelectedLis
                 //menuBool=true;
                 TextView rpm = (TextView) findViewById(R.id.rpm);
                 rpm.setText(DataHandler.getInstance().getLastValue());
-                if (DataHandler.getInstance().getLastIntValue() > 100 &&
+                int max = (pref.getBoolean("demo", true)) ? 50 : 100;
+                if (DataHandler.getInstance().getLastIntValue() > max &&
                         !callPlaced &&
                         !alert.isShowing() &&
                         !ignoreHeartRate) {
@@ -456,5 +489,10 @@ public class MainActivity extends AppCompatActivity implements OnItemSelectedLis
             }
 
         }
+    }
+
+    @Override
+    public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+        pref.edit().putBoolean("demo", isChecked).apply();
     }
 }
