@@ -37,6 +37,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.cepheuen.elegantnumberbutton.view.ElegantNumberButton;
+import com.github.ivbaranov.rxbluetooth.RxBluetooth;
 import com.google.gson.Gson;
 import com.onegravity.contactpicker.contact.Contact;
 import com.onegravity.contactpicker.contact.ContactDescription;
@@ -62,6 +63,7 @@ public class MainActivity extends AppCompatActivity implements OnItemSelectedLis
 
     private final static int REQUEST_PERM = 1010;
     private final static int REQUEST_CONTACT = 2010;
+    private final static int REQUEST_ENABLE_BT = 3010;
     static LocationManager mLocationManager;
     boolean searchBt = true;
     BluetoothAdapter mBluetoothAdapter;
@@ -75,6 +77,7 @@ public class MainActivity extends AppCompatActivity implements OnItemSelectedLis
     SharedPreferences pref;
     AlertDialog alert;
     private Spinner spinner1;
+    RxBluetooth rxBluetooth;
 
     public static Location getLastKnownLocation(Context context) {
         mLocationManager = (LocationManager) context.getSystemService(LOCATION_SERVICE);
@@ -93,7 +96,6 @@ public class MainActivity extends AppCompatActivity implements OnItemSelectedLis
         }
         return bestLocation;
     }
-
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
@@ -101,6 +103,8 @@ public class MainActivity extends AppCompatActivity implements OnItemSelectedLis
         DataHandler.getInstance().addObserver(this);
 
         pref = getSharedPreferences("PulseAlert", MODE_PRIVATE);
+
+        rxBluetooth = new RxBluetooth(getApplicationContext());
 
         findViewById(R.id.eContactsButton).setOnClickListener(this);
         CheckBox demoCheckBox = ((CheckBox) findViewById(R.id.demoModeCheckbox));
@@ -173,26 +177,8 @@ public class MainActivity extends AppCompatActivity implements OnItemSelectedLis
             mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
             if (mBluetoothAdapter != null) {
                 if (!mBluetoothAdapter.isEnabled()) {
-                    new AlertDialog.Builder(this)
-                            .setTitle(R.string.bluetooth)
-                            .setMessage(R.string.bluetoothOff)
-                            .setPositiveButton(android.R.string.yes, new DialogInterface.OnClickListener() {
-                                public void onClick(DialogInterface dialog, int which) {
-                                    mBluetoothAdapter.enable();
-                                    try {
-                                        Thread.sleep(2000);
-                                    } catch (InterruptedException e) {
-                                        e.printStackTrace();
-                                    }
-                                    listBT();
-                                }
-                            })
-                            .setNegativeButton(android.R.string.no, new DialogInterface.OnClickListener() {
-                                public void onClick(DialogInterface dialog, int which) {
-                                    searchBt = false;
-                                }
-                            })
-                            .show();
+                    // to enable blutooth via startActivityForResult()
+                    rxBluetooth.enableBluetooth(this, REQUEST_ENABLE_BT);
                 } else {
                     listBT();
                 }
@@ -458,10 +444,12 @@ public class MainActivity extends AppCompatActivity implements OnItemSelectedLis
                         .putExtra(ContactPickerActivity.EXTRA_CONTACT_BADGE_TYPE, ContactPictureType.ROUND.name())
                         .putExtra(ContactPickerActivity.EXTRA_ONLY_CONTACTS_WITH_PHONE, true)
                         .putExtra(ContactPickerActivity.EXTRA_SHOW_CHECK_ALL, true)
+                        .putExtra(ContactPickerActivity.EXTRA_THEME, R.style.ContactPicker_Theme_Dark)
                         .putExtra(ContactPickerActivity.EXTRA_CONTACT_DESCRIPTION, ContactDescription.ADDRESS.name())
                         .putExtra(ContactPickerActivity.EXTRA_CONTACT_DESCRIPTION_TYPE, ContactsContract.CommonDataKinds.Email.TYPE_WORK)
                         .putExtra(ContactPickerActivity.EXTRA_CONTACT_SORT_ORDER, ContactSortOrder.AUTOMATIC.name());
                 startActivityForResult(intent, REQUEST_CONTACT);
+                Toast.makeText(getApplicationContext(), "Make sure you hit the check mark when your done!", Toast.LENGTH_LONG).show();
                 break;
         }
     }
@@ -488,6 +476,9 @@ public class MainActivity extends AppCompatActivity implements OnItemSelectedLis
                 manager.sendMultipartTextMessage(contact.getPhone(2), null, divided, null, null);
             }
 
+        }
+        if (requestCode == REQUEST_ENABLE_BT && resultCode == Activity.RESULT_OK) {
+            listBT();
         }
     }
 
