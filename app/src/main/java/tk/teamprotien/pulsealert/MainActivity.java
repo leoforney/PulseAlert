@@ -337,7 +337,7 @@ public class MainActivity extends AppCompatActivity implements OnItemSelectedLis
                 //menuBool=true;
                 TextView rpm = (TextView) findViewById(R.id.rpm);
                 rpm.setText(DataHandler.getInstance().getLastValue());
-                if (DataHandler.getInstance().getLastIntValue() > 50 &&
+                if (DataHandler.getInstance().getLastIntValue() > 100 &&
                         !callPlaced &&
                         !alert.isShowing() &&
                         !ignoreHeartRate) {
