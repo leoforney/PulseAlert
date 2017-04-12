@@ -355,7 +355,7 @@ public class MainActivity extends AppCompatActivity implements OnItemSelectedLis
                 //menuBool=true;
                 TextView rpm = (TextView) findViewById(R.id.rpm);
                 rpm.setText(DataHandler.getInstance().getLastValue());
-                int max = (pref.getBoolean("demo", true)) ? 50 : 100;
+                int max = (pref.getBoolean("demo", true)) ? 50 : 120;
                 if (DataHandler.getInstance().getLastIntValue() > max &&
                         !callPlaced &&
                         !alert.isShowing() &&
